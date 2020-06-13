@@ -38,9 +38,24 @@ public class ClienteRestController {
     private ClienteService clienteService;
 
     @GetMapping("/clientes")
-    @ResponseStatus(HttpStatus.OK)
-    public List<Cliente> index() {
-        return clienteService.findAll();
+    public ResponseEntity<JsonResp> index() {
+
+        List<Cliente> listaClientes = null;
+
+        try {
+            
+            listaClientes = clienteService.findAll();
+
+        } catch (DataAccessException e) {
+            resp.success = false;
+            resp.message = "Listado de cleintes cargaod correctamente";
+            resp.error = e.getMessage().concat(": ").concat(e.getMostSpecificCause().toString());
+            return new ResponseEntity<>(resp, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+
+        resp.message = "Listado de cleintes cargaod correctamente";
+        resp.data = listaClientes;
+        return new ResponseEntity<>(resp, HttpStatus.ACCEPTED);
     }
 
     @RequestMapping("cliente/{id}")
