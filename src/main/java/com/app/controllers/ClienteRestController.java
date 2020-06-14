@@ -1,17 +1,26 @@
 package com.app.controllers;
 
+import java.io.File;
+import java.net.MalformedURLException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
-
-
 import javax.validation.Valid;
+
+import com.app.common.HandleValidError;
 import com.app.models.Cliente;
 import com.app.models.JsonResp;
 import com.app.services.interfaces.ClienteService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.dao.DataAccessException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
@@ -24,8 +33,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @CrossOrigin()
 @RestController
@@ -36,9 +47,11 @@ public class ClienteRestController {
     private ClienteService clienteService;
 
     public JsonResp resp;
+    private HandleValidError validErrors;
 
     public ClienteRestController() {
         resp = new JsonResp();
+        validErrors = new HandleValidError();
     }
 
     @GetMapping("/clientes")
@@ -96,17 +109,13 @@ public class ClienteRestController {
     @PostMapping("/clientes")
     public ResponseEntity<?> create(@Valid @RequestBody Cliente cliente, BindingResult result) {
 
+        resp = new JsonResp();
         Cliente nuevoCliente;
 
         if (result.hasErrors()) {
-
-            List<String> errors = result.getFieldErrors().stream()
-                    .map(err -> "El campo '" + err.getField() + "' " + err.getDefaultMessage())
-                    .collect(Collectors.toList());
-
             resp.success = false;
-            resp.message = "Error de validación - Datos enviados incorrectamente";
-            resp.error = errors;
+            resp.message = "Error en la validacion de datos";
+            resp.error = validErrors.getErrorList(result);
             return new ResponseEntity<JsonResp>(resp, HttpStatus.BAD_REQUEST);
         }
 
@@ -165,6 +174,82 @@ public class ClienteRestController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable long id) {
         clienteService.delete(id);
+    }
+
+    @PutMapping("/clientes/upload")
+    public ResponseEntity<JsonResp> upload(@RequestParam("archivo") MultipartFile archivo, @RequestParam("id") Long id) {
+
+        Cliente cliente;
+        String nombreArchivo = null;
+
+        try {
+            cliente = clienteService.findById(id);
+        } catch (DataAccessException e) {
+            resp.success = false;
+            resp.message = "Error en actualizacion de foto de cliente";
+            resp.error = e.getMessage().concat(": ").concat(e.getMostSpecificCause().toString());
+            return new ResponseEntity<>(resp, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+
+        if (!archivo.isEmpty()) {
+            nombreArchivo = saveCustomerImage(archivo, cliente);
+            cliente.setFoto(nombreArchivo);
+            clienteService.save(cliente);
+        }
+
+        resp.message = "Cliente actualizadon de manera exitosa";
+        resp.data = cliente;
+        return new ResponseEntity<>(resp, HttpStatus.CREATED);
+    }
+
+    @GetMapping("/cliente/foto/{nombreFoto:.+}")
+    public ResponseEntity<Resource> verFoto(@PathVariable String nombreFoto) {
+
+        Path rutaFotoAnterio = Paths.get("documents/clientes/foto").resolve(nombreFoto).toAbsolutePath();
+        Resource recurso = null;
+
+        try {
+            recurso = new UrlResource(rutaFotoAnterio.toUri());
+        } catch (MalformedURLException e) {
+            e.printStackTrace();
+        }
+
+        if (!recurso.exists() && !recurso.isReadable()) {
+            // deberia cargar una imagen por defecto aqui
+        }
+
+        HttpHeaders cabecera = new HttpHeaders();
+        cabecera.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + recurso.getFilename() + "\"");
+        return new ResponseEntity<Resource>(recurso, cabecera, HttpStatus.OK);
+    }
+
+
+    public String saveCustomerImage(MultipartFile archivo, Cliente cliente) {
+
+        String nombreArchivo =  UUID.randomUUID().toString() + cliente.getNombre().concat("ID".concat(cliente.getId().toString()).concat("_").concat(archivo.getOriginalFilename().replace(" ", "")));
+        Path rutaArchivo = Paths.get("documents/clientes/foto").resolve(nombreArchivo).toAbsolutePath();
+
+        try {
+            Files.copy(archivo.getInputStream(), rutaArchivo);
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+            throw new RuntimeException(e.getMessage());
+        }
+
+
+        String nombreFotoAnterior = cliente.getFoto();
+
+        if (nombreFotoAnterior != null && nombreFotoAnterior.length() > 5) {
+            Path rutaFotoAnterio = Paths.get("documents/clientes/foto").resolve(nombreFotoAnterior).toAbsolutePath();
+
+            File archivoAnterior = rutaFotoAnterio.toFile();
+
+            if (archivoAnterior.exists() && archivoAnterior.canRead()) {
+                archivoAnterior.delete();
+            }
+        }
+
+        return nombreArchivo;
     }
 
 }
