@@ -9,5 +9,7 @@ public interface RegionService {
     public Region save(Region region);
 
     public List<Region> findAll();
+
+    public Region findById(Long id);
     
 }

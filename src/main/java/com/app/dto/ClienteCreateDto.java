@@ -14,6 +14,17 @@ public class ClienteCreateDto {
     @Email
     private String email;
 
+    @NotNull
+    private Long idRegion;
+
+    public Long getIdRegion() {
+        return this.idRegion;
+    }
+
+    public void setIdRegion(Long idRegion) {
+        this.idRegion = idRegion;
+    }
+
     public String getNombre() {
         return this.nombre;
     }

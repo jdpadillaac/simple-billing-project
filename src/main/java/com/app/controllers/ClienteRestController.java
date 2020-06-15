@@ -9,13 +9,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import javax.validation.Valid;
 
 import com.app.common.HandleValidError;
+import com.app.dto.ClienteCreateDto;
 import com.app.models.Cliente;
 import com.app.models.JsonResp;
+import com.app.models.Region;
 import com.app.services.interfaces.ClienteService;
+import com.app.services.interfaces.RegionService;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -45,6 +48,8 @@ public class ClienteRestController {
 
     @Autowired
     private ClienteService clienteService;
+    @Autowired
+    private RegionService regionSrv;
 
     public JsonResp resp;
     private HandleValidError validErrors;
@@ -107,10 +112,20 @@ public class ClienteRestController {
     }
 
     @PostMapping("/clientes")
-    public ResponseEntity<?> create(@Valid @RequestBody Cliente cliente, BindingResult result) {
+    public ResponseEntity<?> create(@Valid @RequestBody ClienteCreateDto cliente, BindingResult result) {
 
         resp = new JsonResp();
         Cliente nuevoCliente;
+
+        Region regionSeleccionhada = regionSrv.findById(cliente.getIdRegion());
+
+        Cliente clienteAGuardar = new Cliente();
+        clienteAGuardar.setApellidos(cliente.getApellido());
+        clienteAGuardar.setNombre(cliente.getNombre());
+        clienteAGuardar.setEmail(cliente.getEmail());
+        clienteAGuardar.setRegion(regionSeleccionhada);
+
+        System.out.println(clienteAGuardar);
 
         if (result.hasErrors()) {
             resp.success = false;
@@ -121,7 +136,7 @@ public class ClienteRestController {
 
         try {
 
-            nuevoCliente = clienteService.save(cliente);
+            nuevoCliente = clienteService.save(clienteAGuardar);
 
         } catch (DataAccessException e) {
             resp.success = false;

@@ -8,12 +8,13 @@ import com.app.services.interfaces.RegionService;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class RegionServiceImpl implements RegionService {
 
     @Autowired
-    RegionDao regionDao;
+    private RegionDao regionDao;
 
     @Override
     public Region save(Region region) {
@@ -21,8 +22,15 @@ public class RegionServiceImpl implements RegionService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<Region> findAll() {
         return (List<Region>) regionDao.findAll();
+    }
+ 
+    @Override
+    @Transactional(readOnly = true)
+    public Region findById(Long id) {
+        return regionDao.findById(id).orElse(null);
     }
     
 }

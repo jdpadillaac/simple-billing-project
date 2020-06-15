@@ -9,7 +9,6 @@ import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Table;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Entity
 @Table(name = "regiones")
@@ -20,7 +19,6 @@ public class Region implements Serializable {
     private Long id;
 
     @Column(nullable = false)
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private String nombre;
 
     @Column(unique = true)
